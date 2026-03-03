@@ -11,50 +11,60 @@ def scan_kuesioner():
     
     file = request.files['file']
     try:
+        # 1. Baca Gambar
         file_bytes = np.frombuffer(file.read(), np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         
-        # 1. Thresholding balik (Kertas hitam, garis putih)
+        # 2. Thresholding (Kertas Hitam, Garis/Teks Putih)
+        # Menggunakan Adaptive Threshold agar tahan terhadap bayangan pada kertas
         thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
         
-        # 2. Ekstrak Garis Horizontal
-        horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (40, 1))
-        detect_horizontal = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, horizontal_kernel, iterations=2)
+        # 3. Ekstraksi Struktur Tabel (Morfologi)
+        # Mencari garis horizontal
+        horiz_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (40, 1))
+        lines_h = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, horiz_kernel, iterations=2)
         
-        # 3. Ekstrak Garis Vertikal
-        vertical_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 40))
-        detect_vertical = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, vertical_kernel, iterations=2)
+        # Mencari garis vertikal
+        vert_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 40))
+        lines_v = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, vert_kernel, iterations=2)
         
-        # 4. Gabungkan untuk membuat Mask Tabel
-        table_mask = cv2.addWeighted(detect_horizontal, 0.5, detect_vertical, 0.5, 0)
-        table_mask = cv2.threshold(table_mask, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+        # Gabungkan garis untuk membuat kerangka tabel murni
+        table_structure = cv2.add(lines_h, lines_v)
         
-        # 5. Cari Kontur Sel dalam Tabel
-        contours, _ = cv2.findContours(table_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        # 4. Temukan Kontur Sel
+        contours, _ = cv2.findContours(table_structure, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         
         cells = []
         for c in contours:
             x, y, w, h = cv2.boundingRect(c)
-            # Saring ukuran sel (sesuaikan dengan ukuran kolom skala likert Anda)
-            if 30 < w < 200 and 20 < h < 100:
+            # Saring berdasarkan ukuran sel (Sesuaikan jika tabel sangat besar/kecil)
+            if 30 < w < 500 and 20 < h < 200:
                 cells.append((x, y, w, h))
         
-        # 6. Urutkan Sel: Atas ke Bawah, lalu Kiri ke Kanan
-        # Kita beri toleransi y/10 agar sel dalam satu baris dianggap memiliki y yang sama
-        cells = sorted(cells, key=lambda b: (b[1] // 10, b[0]))
+        # 5. Pengurutan Sel (PENTING)
+        # Mengurutkan dari Atas ke Bawah (Y), lalu Kiri ke Kanan (X)
+        # Menggunakan pembagi (// 15) agar sel dalam satu baris memiliki grup Y yang sama
+        cells = sorted(cells, key=lambda b: (b[1] // 15, b[0]))
         
         hasil_scan = []
         for i, (x, y, w, h) in enumerate(cells):
-            # Crop bagian dalam sel (margin 5px agar tidak kena garis tabel)
-            cell_roi = thresh[y+5:y+h-5, x+5:x+w-5]
+            # Crop area tengah sel (Margin 15% untuk menghindari garis tabel)
+            margin_w = int(w * 0.15)
+            margin_h = int(h * 0.15)
+            cell_roi = thresh[y+margin_h : y+h-margin_h, x+margin_w : x+w-margin_w]
             
+            # Hitung piksel tinta
             tinta = cv2.countNonZero(cell_roi)
-            persentase = (tinta / (cell_roi.shape[0] * cell_roi.shape[1])) * 100 if cell_roi.size > 0 else 0
+            luas = cell_roi.shape[0] * cell_roi.shape[1]
+            persentase = (tinta / luas) * 100 if luas > 0 else 0
+            
+            # Kalibrasi sensitivitas: 7-10% biasanya ideal untuk centang pulpen
+            status = "terisi" if persentase > 8 else "kosong"
             
             hasil_scan.append({
                 "cell_index": i + 1,
-                "status": "terisi" if persentase > 8 else "kosong",
+                "status": status,
                 "persentase": round(persentase, 2)
             })
             
