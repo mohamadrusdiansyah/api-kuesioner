@@ -38,21 +38,21 @@ def scan_kuesioner():
         
         # --- PERBAIKAN KRUSIAL: SORTING ---
         # Gunakan pembagi 60 agar Y yang mirip dianggap dalam satu baris (row)
-        cells = sorted(cells, key=lambda b: (int(b[1] / 60), b[0]))
+        cells = sorted(cells, key=lambda b: (int(b[1] / 70), b[0]))
         
         hasil_scan = []
         for i, (x, y, w, h) in enumerate(cells):
-            # Ambil bagian tengah sel saja agar tidak terkena garis hitam tabel
-            margin_w = int(w * 0.20)
-            margin_h = int(h * 0.20)
+            # Tingkatkan margin pemotongan (ambil 25% area tengah saja)
+            # agar garis tabel hitam tidak ikut terdeteksi sebagai jawaban.
+            margin_w = int(w * 0.25)
+            margin_h = int(h * 0.25)
             cell_roi = thresh[y+margin_h : y+h-margin_h, x+margin_w : x+w-margin_w]
             
             tinta = cv2.countNonZero(cell_roi)
             luas = cell_roi.shape[0] * cell_roi.shape[1]
             persentase = (tinta / luas) * 100 if luas > 0 else 0
             
-            # Kalibrasi: Hanya anggap 'terisi' jika tinta > 15%
-            # Ini mencegah garis tabel yang tebal terbaca sebagai Opsi 1-4
+            # Naikkan batas sensitivitas: Hanya anggap 'terisi' jika tinta > 15%
             status = "terisi" if persentase > 15 else "kosong"
             
             hasil_scan.append({
