@@ -38,7 +38,7 @@ def scan_kuesioner():
                 cells.append((x, y, w, h))
         
         # FIX: Pengurutan dengan toleransi 50 pixel agar satu baris tidak pecah
-        cells = sorted(cells, key=lambda b: (int(b[1] / 60), b[0]))
+        cells = sorted(cells, key=lambda b: (int(b[1] / 80), b[0]))
         
         hasil_scan = []
         for i, (x, y, w, h) in enumerate(cells):
@@ -52,7 +52,7 @@ def scan_kuesioner():
             persentase = (tinta / luas) * 100 if luas > 0 else 0
             
             # Sensitivitas ditingkatkan menjadi 10% agar lebih akurat
-            status = "terisi" if persentase > 10 else "kosong"
+            status = "terisi" if persentase > 12 else "kosong"
             
             hasil_scan.append({
                 "cell_index": i + 1,
