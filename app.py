@@ -45,7 +45,7 @@ def scan_kuesioner():
         # 5. Pengurutan Sel (PENTING)
         # Mengurutkan dari Atas ke Bawah (Y), lalu Kiri ke Kanan (X)
         # Menggunakan pembagi (// 15) agar sel dalam satu baris memiliki grup Y yang sama
-        cells = sorted(cells, key=lambda b: (b[1] // 40, b[0]))
+        cells = sorted(cells, key=lambda b: (b[1] // 50, b[0]))
         
         hasil_scan = []
         for i, (x, y, w, h) in enumerate(cells):
