@@ -33,26 +33,27 @@ def scan_kuesioner():
         cells = []
         for c in contours:
             x, y, w, h = cv2.boundingRect(c)
-            # Filter ukuran sel agar tidak mengambil teks di luar tabel
             if 30 < w < 500 and 20 < h < 200:
                 cells.append((x, y, w, h))
         
-        # FIX: Pengurutan dengan toleransi 50 pixel agar satu baris tidak pecah
-        cells = sorted(cells, key=lambda b: (int(b[1] / 80), b[0]))
+        # --- PERBAIKAN KRUSIAL: SORTING ---
+        # Gunakan pembagi 60 agar Y yang mirip dianggap dalam satu baris (row)
+        cells = sorted(cells, key=lambda b: (int(b[1] / 60), b[0]))
         
         hasil_scan = []
         for i, (x, y, w, h) in enumerate(cells):
-            # Crop area tengah sel (Margin 15% untuk menghindari garis hitam tabel)
-            margin_w = int(w * 0.15)
-            margin_h = int(h * 0.15)
+            # Ambil bagian tengah sel saja agar tidak terkena garis hitam tabel
+            margin_w = int(w * 0.20)
+            margin_h = int(h * 0.20)
             cell_roi = thresh[y+margin_h : y+h-margin_h, x+margin_w : x+w-margin_w]
             
             tinta = cv2.countNonZero(cell_roi)
             luas = cell_roi.shape[0] * cell_roi.shape[1]
             persentase = (tinta / luas) * 100 if luas > 0 else 0
             
-            # Sensitivitas ditingkatkan menjadi 10% agar lebih akurat
-            status = "terisi" if persentase > 12 else "kosong"
+            # Kalibrasi: Hanya anggap 'terisi' jika tinta > 15%
+            # Ini mencegah garis tabel yang tebal terbaca sebagai Opsi 1-4
+            status = "terisi" if persentase > 15 else "kosong"
             
             hasil_scan.append({
                 "cell_index": i + 1,
