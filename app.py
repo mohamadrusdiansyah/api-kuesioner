@@ -50,7 +50,7 @@ def scan_kuesioner():
             jumlah_piksel_tinta = cv2.countNonZero(area_kotak)
             persentase = (jumlah_piksel_tinta / (w * h)) * 100
             
-            status_kotak = "terisi" if persentase > 15 else "kosong" # Batas toleransi dinaikkan sedikit untuk full page
+            status_kotak = "terisi" if persentase > 2 else "kosong" # Batas toleransi dinaikkan sedikit untuk full page
             
             # Simpan hasil kotak ini ke daftar
             hasil_scan.append({
