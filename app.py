@@ -38,7 +38,7 @@ def scan_kuesioner():
                 cells.append((x, y, w, h))
         
         # FIX: Pengurutan dengan toleransi 50 pixel agar satu baris tidak pecah
-        cells = sorted(cells, key=lambda b: (int(b[1] / 50), b[0]))
+        cells = sorted(cells, key=lambda b: (int(b[1] / 60), b[0]))
         
         hasil_scan = []
         for i, (x, y, w, h) in enumerate(cells):
