@@ -33,7 +33,7 @@ def scan_kuesioner():
             # ATURAN KOTAK: 
             # Lebar & Tinggi antara 20 - 100 piksel (abaikan titik debu atau garis panjang)
             # Rasio antara 0.8 sampai 1.2 (bentuknya mendekati persegi/bujur sangkar)
-            if 20 < w < 100 and 20 < h < 100 and 0.8 <= rasio <= 1.2:
+                if 20 < w < 1000 and 20 < h < 1000 and 0.8 <= rasio <= 1.2:
                 kotak_ditemukan.append((x, y, w, h))
                 
         # 5. URUTKAN KOTAK DARI ATAS KE BAWAH (Berdasarkan kordinat Y)
