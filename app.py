@@ -60,7 +60,7 @@ def scan_kuesioner():
             persentase = (tinta / luas) * 100 if luas > 0 else 0
             
             # Kalibrasi sensitivitas: 7-10% biasanya ideal untuk centang pulpen
-            status = "terisi" if persentase > 12 else "kosong"
+            status = "terisi" if persentase > 10 else "kosong"
             
             hasil_scan.append({
                 "cell_index": i + 1,
