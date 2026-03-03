@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 import cv2
 import numpy as np
- 
+
 app = Flask(__name__)
 
 @app.route('/scan', methods=['POST'])
@@ -11,58 +11,56 @@ def scan_kuesioner():
     
     file = request.files['file']
     try:
-        # 1. BACA GAMBAR
         file_bytes = np.frombuffer(file.read(), np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-        
-        # 2. UBAH KE HITAM PUTIH (THRESHOLDING)
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # Gunakan thresholding yang lebih adaptif agar kebal terhadap bayangan HP
+        
+        # 1. Thresholding balik (Kertas hitam, garis putih)
         thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
         
-        # 3. CARI SEMUA BENTUK (KONTUR) DI KERTAS
-        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # 2. Ekstrak Garis Horizontal
+        horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (40, 1))
+        detect_horizontal = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, horizontal_kernel, iterations=2)
         
-        kotak_ditemukan = []
+        # 3. Ekstrak Garis Vertikal
+        vertical_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 40))
+        detect_vertical = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, vertical_kernel, iterations=2)
         
-        # 4. SARING HANYA YANG BENTUKNYA KOTAK
+        # 4. Gabungkan untuk membuat Mask Tabel
+        table_mask = cv2.addWeighted(detect_horizontal, 0.5, detect_vertical, 0.5, 0)
+        table_mask = cv2.threshold(table_mask, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+        
+        # 5. Cari Kontur Sel dalam Tabel
+        contours, _ = cv2.findContours(table_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        
+        cells = []
         for c in contours:
             x, y, w, h = cv2.boundingRect(c)
-            rasio = w / float(h)
-            
-            # ATURAN KOTAK: 
-            # Lebar & Tinggi antara 20 - 100 piksel (abaikan titik debu atau garis panjang)
-            # Rasio antara 0.8 sampai 1.2 (bentuknya mendekati persegi/bujur sangkar)
-            if 20 < w < 1000 and 20 < h < 1000 and 0.8 <= rasio <= 1.2:
-                kotak_ditemukan.append((x, y, w, h))
-                
-        # 5. URUTKAN KOTAK DARI ATAS KE BAWAH (Berdasarkan kordinat Y)
-        # Ini agar kotak Soal No 1 dibaca lebih dulu dari Soal No 2
-        kotak_ditemukan = sorted(kotak_ditemukan, key=lambda b: b[1])
+            # Saring ukuran sel (sesuaikan dengan ukuran kolom skala likert Anda)
+            if 30 < w < 200 and 20 < h < 100:
+                cells.append((x, y, w, h))
         
-        # 6. PERIKSA ISI MASING-MASING KOTAK
+        # 6. Urutkan Sel: Atas ke Bawah, lalu Kiri ke Kanan
+        # Kita beri toleransi y/10 agar sel dalam satu baris dianggap memiliki y yang sama
+        cells = sorted(cells, key=lambda b: (b[1] // 10, b[0]))
+        
         hasil_scan = []
-        for urutan, (x, y, w, h) in enumerate(kotak_ditemukan):
-            # Potong (crop) hanya area kotak tersebut
-            area_kotak = thresh[y:y+h, x:x+w]
+        for i, (x, y, w, h) in enumerate(cells):
+            # Crop bagian dalam sel (margin 5px agar tidak kena garis tabel)
+            cell_roi = thresh[y+5:y+h-5, x+5:x+w-5]
             
-            # Hitung tintanya
-            jumlah_piksel_tinta = cv2.countNonZero(area_kotak)
-            persentase = (jumlah_piksel_tinta / (w * h)) * 100
+            tinta = cv2.countNonZero(cell_roi)
+            persentase = (tinta / (cell_roi.shape[0] * cell_roi.shape[1])) * 100 if cell_roi.size > 0 else 0
             
-            status_kotak = "terisi" if persentase > 10 else "kosong" # Batas toleransi dinaikkan sedikit untuk full page
-            
-            # Simpan hasil kotak ini ke daftar
             hasil_scan.append({
-                "soal_nomor": urutan + 1,
-                "status": status_kotak,
+                "cell_index": i + 1,
+                "status": "terisi" if persentase > 8 else "kosong",
                 "persentase": round(persentase, 2)
             })
             
-        # 7. KEMBALIKAN SEMUA DATA KE PHP
         return jsonify({
             "status": "sukses",
-            "total_kotak_terdeteksi": len(kotak_ditemukan),
+            "total_sel_terdeteksi": len(cells),
             "data_jawaban": hasil_scan
         })
         
