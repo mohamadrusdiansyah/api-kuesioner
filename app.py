@@ -45,7 +45,7 @@ def scan_kuesioner():
         # 5. Pengurutan Sel (PENTING)
         # Mengurutkan dari Atas ke Bawah (Y), lalu Kiri ke Kanan (X)
         # Menggunakan pembagi (// 15) agar sel dalam satu baris memiliki grup Y yang sama
-        cells = sorted(cells, key=lambda b: (b[1] // 30, b[0]))
+        cells = sorted(cells, key=lambda b: (b[1] // 40, b[0]))
         
         hasil_scan = []
         for i, (x, y, w, h) in enumerate(cells):
@@ -60,7 +60,7 @@ def scan_kuesioner():
             persentase = (tinta / luas) * 100 if luas > 0 else 0
             
             # Kalibrasi sensitivitas: 7-10% biasanya ideal untuk centang pulpen
-            status = "terisi" if persentase > 8 else "kosong"
+            status = "terisi" if persentase > 12 else "kosong"
             
             hasil_scan.append({
                 "cell_index": i + 1,
